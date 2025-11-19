@@ -206,6 +206,13 @@ const createNewHost = () => {
       <div class="fixed bottom-6 right-6 flex flex-col gap-3">
         <button
           class="neomorph-btn w-14 h-14 rounded-full flex items-center justify-center shadow-2xl"
+          @click="router.push('/ssh/keys')"
+          title="Generate SSH Keys"
+        >
+          <Icon name="lucide:key" class="w-6 h-6 text-gray-200" />
+        </button>
+        <button
+          class="neomorph-btn w-14 h-14 rounded-full flex items-center justify-center shadow-2xl"
           @click="createNewHost"
           title="Add new host"
         >

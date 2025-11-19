@@ -6,11 +6,14 @@ export interface SSHHost {
   hostname: string
   port: number
   username: string
-  authMethod: 'password' | 'privateKey' | 'agent'
+  authMethod: 'password' | 'privateKey' | 'secureKey' | 'agent'
   password?: string
   privateKey?: string
   privateKeyPath?: string
   passphrase?: string
+  // Secure key (hardware-backed)
+  secureKeyId?: string
+  secureKeyLabel?: string
   description?: string
   tags?: string[]
   forwardAgent?: boolean
@@ -47,7 +50,7 @@ export const useSSHStore = defineStore('ssh', {
     getHostById: (state) => {
       return (id: string) => state.hosts.find(h => h.id === id)
     },
-    
+
     sortedHosts: (state) => {
       return [...state.hosts].sort((a, b) => {
         if (a.lastUsed && b.lastUsed) {
@@ -147,40 +150,40 @@ export const useSSHStore = defineStore('ssh', {
     exportHost(id: string): string {
       const host = this.getHostById(id)
       if (!host) return ''
-      
+
       let config = `Host ${host.name}\n`
       config += `  HostName ${host.hostname}\n`
       config += `  Port ${host.port}\n`
       config += `  User ${host.username}\n`
-      
+
       if (host.privateKeyPath) {
         config += `  IdentityFile ${host.privateKeyPath}\n`
       }
-      
+
       if (host.forwardAgent) {
         config += `  ForwardAgent yes\n`
       }
-      
+
       if (host.compression) {
         config += `  Compression yes\n`
       }
-      
+
       if (host.strictHostKeyChecking !== undefined) {
         config += `  StrictHostKeyChecking ${host.strictHostKeyChecking ? 'yes' : 'no'}\n`
       }
-      
+
       if (host.proxyJump) {
         config += `  ProxyJump ${host.proxyJump}\n`
       }
-      
+
       host.localForwards?.forEach(fwd => {
         config += `  LocalForward ${fwd.localPort} ${fwd.remoteHost}:${fwd.remotePort}\n`
       })
-      
+
       host.remoteForwards?.forEach(fwd => {
         config += `  RemoteForward ${fwd.remotePort} ${fwd.localHost}:${fwd.localPort}\n`
       })
-      
+
       return config
     },
 
@@ -213,9 +216,9 @@ export const useSSHStore = defineStore('ssh', {
           const parts = trimmed.split(/\s+/)
           const key = parts[0]
           const value = parts.slice(1).join(' ')
-          
+
           if (!key) continue
-          
+
           switch (key.toLowerCase()) {
             case 'hostname':
               currentHost.hostname = value

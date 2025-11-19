@@ -32,6 +32,47 @@ export interface SSHPlugin {
   disconnect(options: { sessionId: string }): Promise<{ success: boolean }>
   executeCommand(options: SSHCommandOptions): Promise<SSHCommandResult>
   isConnected(options: { sessionId: string }): Promise<{ connected: boolean }>
+
+  // Legacy key generation (insecure - exposes private key)
+  generateKeyPair(options: { keyType?: string; keySize?: number; comment?: string }): Promise<{
+    success: boolean
+    privateKey: string
+    publicKey: string
+    keyType: string
+    keySize: number
+  }>
+
+  // Secure key management (hardware-backed)
+  generateSecureKeyPair(options: {
+    keyType?: string
+    keySize?: number
+    label?: string
+  }): Promise<{
+    success: boolean
+    keyId: string
+    publicKey: string
+    alias: string
+    label: string
+  }>
+
+  listStoredKeys(): Promise<{
+    keys: Array<{
+      keyId: string
+      label: string
+      publicKey: string
+      keyType: string
+      createdAt: string
+    }>
+  }>
+
+  deleteSecureKey(options: { keyId: string }): Promise<{ success: boolean }>
+
+  connectWithSecureKey(options: {
+    hostname: string
+    port: number
+    username: string
+    keyId: string
+  }): Promise<SSHConnectionResult>
 }
 
 // Register the plugin
@@ -63,6 +104,47 @@ const SSHClient = registerPlugin<SSHPlugin>('SSHClient', {
       },
       async isConnected(options: { sessionId: string }): Promise<{ connected: boolean }> {
         return { connected: true }
+      },
+      async generateKeyPair(options: { keyType?: string; keySize?: number; comment?: string }) {
+        console.log('SSH GenerateKeyPair (Web Mock):', options)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        return {
+          success: true,
+          privateKey: '-----BEGIN OPENSSH PRIVATE KEY-----\nMockPrivateKey\n-----END OPENSSH PRIVATE KEY-----',
+          publicKey: 'ssh-rsa MockPublicKey',
+          keyType: options.keyType || 'rsa',
+          keySize: options.keySize || 2048
+        }
+      },
+      async generateSecureKeyPair(options: { keyType?: string; keySize?: number; label?: string }) {
+        console.log('SSH GenerateSecureKeyPair (Web Mock):', options)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        return {
+          success: true,
+          keyId: 'mock-key-id',
+          publicKey: 'ssh-rsa MockSecurePublicKey',
+          alias: 'mock-alias',
+          label: options.label || 'Mock Key'
+        }
+      },
+      async listStoredKeys() {
+        console.log('SSH ListStoredKeys (Web Mock)')
+        return {
+          keys: []
+        }
+      },
+      async deleteSecureKey(options: { keyId: string }) {
+        console.log('SSH DeleteSecureKey (Web Mock):', options)
+        return { success: true }
+      },
+      async connectWithSecureKey(options: any) {
+        console.log('SSH ConnectWithSecureKey (Web Mock):', options)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        return {
+          success: true,
+          sessionId: 'mock-session-id',
+          message: 'Connected with mock secure key'
+        }
       }
     }
   }

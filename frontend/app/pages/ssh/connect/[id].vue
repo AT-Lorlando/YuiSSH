@@ -5,6 +5,7 @@ import { useSSHStore } from '~/stores/ssh'
 const router = useRouter()
 const route = useRoute()
 const sshStore = useSSHStore()
+const { $ssh } = useNuxtApp()
 
 const hostId = route.params.id as string
 const host = ref(null as any)
@@ -38,27 +39,57 @@ const handleConnect = async () => {
   addToTerminal(`Connecting to ${host.value.username}@${host.value.hostname}:${host.value.port}...`)
   
   try {
-    const options = {
-      hostname: host.value.hostname,
-      port: host.value.port,
-      username: host.value.username,
-      authMethod: host.value.authMethod,
-      password: host.value.password,
-      privateKey: host.value.privateKey,
-      passphrase: host.value.passphrase,
-    }
+    let result
     
-    const success = await ssh.connect(options)
-    
-    if (success) {
-      connectionStatus.value = 'connected'
-      addToTerminal('✓ Connected successfully!')
-      addToTerminal(`Welcome to ${host.value.name}`)
-      addToTerminal('')
+    // Use secure key authentication if available
+    if (host.value.authMethod === 'secureKey' && host.value.secureKeyId) {
+      addToTerminal(`Authenticating with secure key: ${host.value.secureKeyLabel}`)
+      addToTerminal('👆 Please provide biometric authentication...')
+      
+      result = await $ssh.connectWithSecureKey({
+        hostname: host.value.hostname,
+        port: host.value.port,
+        username: host.value.username,
+        keyId: host.value.secureKeyId
+      })
+      
+      if (result.success && result.sessionId) {
+        ssh.currentSessionId.value = result.sessionId
+        ssh.isConnected.value = true
+        connectionStatus.value = 'connected'
+        addToTerminal('✓ Biometric authentication successful!')
+        addToTerminal(`✓ Connected successfully!`)
+        addToTerminal(`Welcome to ${host.value.name}`)
+        addToTerminal('')
+        return
+      }
     } else {
-      connectionStatus.value = 'error'
-      addToTerminal(`✗ Connection failed: ${ssh.connectionError.value}`)
+      // Legacy authentication (password/privateKey)
+      const options = {
+        hostname: host.value.hostname,
+        port: host.value.port,
+        username: host.value.username,
+        authMethod: host.value.authMethod,
+        password: host.value.password,
+        privateKey: host.value.privateKey,
+        privateKeyPath: host.value.privateKeyPath,
+        passphrase: host.value.passphrase,
+      }
+      
+      const success = await ssh.connect(options)
+      
+      if (success) {
+        connectionStatus.value = 'connected'
+        addToTerminal('✓ Connected successfully!')
+        addToTerminal(`Welcome to ${host.value.name}`)
+        addToTerminal('')
+        return
+      }
     }
+    
+    // If we get here, connection failed
+    connectionStatus.value = 'error'
+    addToTerminal(`✗ Connection failed: ${ssh.connectionError.value || 'Unknown error'}`)
     
   } catch (error: any) {
     connectionStatus.value = 'error'
@@ -163,27 +194,20 @@ const goBack = () => {
       </div>
 
       <!-- Connection Controls -->
-      <div v-if="connectionStatus === 'idle' || connectionStatus === 'error'" class="px-4 pb-4">
+      <div v-if="connectionStatus === 'idle'" class="px-4 pb-4">
         <div class="neomorph p-6 rounded-2xl text-center">
           <div class="neomorph-pressed w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center">
             <Icon
-              :name="connectionStatus === 'error' ? 'lucide:x-circle' : 'lucide:power'"
-              :class="[
-                'w-10 h-10',
-                connectionStatus === 'error' ? 'text-red-400' : 'text-blue-400'
-              ]"
+              name="lucide:power"
+              class="w-10 h-10 text-blue-400"
             />
           </div>
           
           <h3 class="text-xl font-bold text-gray-100 mb-2">
-            {{ connectionStatus === 'error' ? 'Connection Failed' : 'Ready to Connect' }}
+            Ready to Connect
           </h3>
           
-          <p v-if="connectionError" class="text-red-400 text-sm mb-4">
-            {{ connectionError }}
-          </p>
-          
-          <p v-else class="text-gray-400 text-sm mb-6">
+          <p class="text-gray-400 text-sm mb-6">
             Click connect to establish SSH connection
           </p>
           
@@ -192,7 +216,7 @@ const goBack = () => {
             @click="handleConnect"
           >
             <Icon name="lucide:plug" class="w-5 h-5" />
-            {{ connectionStatus === 'error' ? 'Retry Connection' : 'Connect' }}
+            Connect
           </button>
         </div>
 
@@ -219,6 +243,77 @@ const goBack = () => {
           </div>
         </div>
       </div>
+
+      <!-- Error State with Terminal Logs -->
+      <div v-if="connectionStatus === 'error'" class="flex-1 flex flex-col px-4 pb-4">
+        <div class="neomorph p-6 rounded-2xl text-center mb-4">
+          <div class="neomorph-pressed w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center">
+            <Icon
+              name="lucide:x-circle"
+              class="w-10 h-10 text-red-400"
+            />
+          </div>
+          
+          <h3 class="text-xl font-bold text-gray-100 mb-2">
+            Connection Failed
+          </h3>
+          
+          <p v-if="ssh.connectionError.value" class="text-red-400 text-sm mb-4">
+            {{ ssh.connectionError.value }}
+          </p>
+          
+          <button
+            class="neomorph-btn px-8 py-3 rounded-xl font-medium text-gray-200 inline-flex items-center gap-2"
+            @click="handleConnect"
+          >
+            <Icon name="lucide:refresh-cw" class="w-5 h-5" />
+            Retry Connection
+          </button>
+        </div>
+
+        <!-- Terminal Output with Error Logs -->
+        <div class="flex-1 neomorph-pressed rounded-2xl overflow-hidden mb-4">
+          <div class="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <Icon name="lucide:terminal" class="w-4 h-4 text-red-400" />
+              <span class="text-sm font-medium text-gray-300">Connection Logs</span>
+            </div>
+            <span class="text-xs text-red-400">Failed</span>
+          </div>
+          <div
+            ref="terminal"
+            class="h-64 overflow-y-auto p-4 font-mono text-sm text-green-400"
+          >
+            <div v-for="(line, index) in terminalOutput" :key="index" :class="['mb-1', line.includes('✗') || line.includes('Error') ? 'text-red-400' : '']">
+              {{ line }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Host Info -->
+        <div class="neomorph p-4 rounded-xl">
+          <h4 class="text-sm font-semibold text-gray-300 mb-3">Connection Details</h4>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between">
+              <span class="text-gray-400">Hostname:</span>
+              <span class="text-gray-200 font-mono">{{ host.hostname }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Port:</span>
+              <span class="text-gray-200 font-mono">{{ host.port }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Username:</span>
+              <span class="text-gray-200 font-mono">{{ host.username }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-400">Auth Method:</span>
+              <span class="text-gray-200 capitalize">{{ host.authMethod }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       <!-- Terminal (when connected) -->
       <div v-if="connectionStatus === 'connecting' || connectionStatus === 'connected'" class="flex-1 flex flex-col px-4 pb-4">
