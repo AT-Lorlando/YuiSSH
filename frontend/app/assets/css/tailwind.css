@@ -43,3 +43,117 @@ body {
 .input-field {
   @apply w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all duration-200;
 }
+
+/* Terminal Styles */
+.terminal {
+  @apply bg-black text-green-400 font-mono text-sm leading-relaxed;
+  font-family: 'Fira Code', 'Courier New', monospace;
+}
+
+.terminal-output {
+  @apply overflow-y-auto p-4;
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #0f172a;
+}
+
+.terminal-output::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-output::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+.terminal-output::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.terminal-output::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* ANSI Color Support */
+.ansi-black {
+  color: #000000;
+}
+
+.ansi-red {
+  color: #ff5555;
+}
+
+.ansi-green {
+  color: #50fa7b;
+}
+
+.ansi-yellow {
+  color: #f1fa8c;
+}
+
+.ansi-blue {
+  color: #bd93f9;
+}
+
+.ansi-magenta {
+  color: #ff79c6;
+}
+
+.ansi-cyan {
+  color: #8be9fd;
+}
+
+.ansi-white {
+  color: #f8f8f2;
+}
+
+.ansi-bright-black {
+  color: #6272a4;
+}
+
+.ansi-bright-red {
+  color: #ff6e6e;
+}
+
+.ansi-bright-green {
+  color: #69ff94;
+}
+
+.ansi-bright-yellow {
+  color: #ffffa5;
+}
+
+.ansi-bright-blue {
+  color: #d6acff;
+}
+
+.ansi-bright-magenta {
+  color: #ff92df;
+}
+
+.ansi-bright-cyan {
+  color: #a4ffff;
+}
+
+.ansi-bright-white {
+  color: #ffffff;
+}
+
+.terminal-prompt {
+  @apply text-blue-400;
+}
+
+.terminal-path {
+  @apply text-cyan-400;
+}
+
+.terminal-command {
+  @apply text-white;
+}
+
+.terminal-error {
+  @apply text-red-400;
+}
+
+.terminal-success {
+  @apply text-green-400;
+}
