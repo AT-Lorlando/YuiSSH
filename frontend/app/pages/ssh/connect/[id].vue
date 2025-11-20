@@ -36,15 +36,24 @@ const handleConnect = async () => {
   if (!host.value) return
   
   connectionStatus.value = 'connecting'
-  addToTerminal(`Connecting to ${host.value.username}@${host.value.hostname}:${host.value.port}...`)
+  addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  addToTerminal(`🔌 Initiating SSH connection...`)
+  addToTerminal(`   Host: ${host.value.hostname}:${host.value.port}`)
+  addToTerminal(`   User: ${host.value.username}`)
+  addToTerminal(`   Auth: ${host.value.authMethod === 'secureKey' ? 'Secure Key (Biometric)' : host.value.authMethod}`)
+  addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  addToTerminal('')
   
   try {
     let result
     
     // Use secure key authentication if available
     if (host.value.authMethod === 'secureKey' && host.value.secureKeyId) {
-      addToTerminal(`Authenticating with secure key: ${host.value.secureKeyLabel}`)
-      addToTerminal('👆 Please provide biometric authentication...')
+      addToTerminal(`🔐 Using secure key: ${host.value.secureKeyLabel}`)
+      addToTerminal(`   Key ID: ${host.value.secureKeyId.substring(0, 16)}...`)
+      addToTerminal('')
+      addToTerminal('👆 Biometric authentication required...')
+      addToTerminal('   Please authenticate to decrypt your SSH key')
       
       result = await $ssh.connectWithSecureKey({
         hostname: host.value.hostname,
@@ -57,14 +66,25 @@ const handleConnect = async () => {
         ssh.currentSessionId.value = result.sessionId
         ssh.isConnected.value = true
         connectionStatus.value = 'connected'
+        addToTerminal('')
         addToTerminal('✓ Biometric authentication successful!')
-        addToTerminal(`✓ Connected successfully!`)
-        addToTerminal(`Welcome to ${host.value.name}`)
+        addToTerminal('✓ Private key decrypted from secure storage')
+        addToTerminal('✓ SSH handshake completed')
+        addToTerminal('✓ Public key authentication successful')
+        addToTerminal('')
+        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        addToTerminal(`✓ Connected to ${host.value.name}`)
+        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        addToTerminal('')
+        addToTerminal(`Session ID: ${result.sessionId}`)
+        addToTerminal(`Ready to execute commands.`)
         addToTerminal('')
         return
       }
-    } else {
-      // Legacy authentication (password/privateKey)
+    } else if (host.value.authMethod === 'password') {
+      addToTerminal('🔑 Using password authentication...')
+      addToTerminal('')
+      
       const options = {
         hostname: host.value.hostname,
         port: host.value.port,
@@ -80,8 +100,45 @@ const handleConnect = async () => {
       
       if (success) {
         connectionStatus.value = 'connected'
-        addToTerminal('✓ Connected successfully!')
-        addToTerminal(`Welcome to ${host.value.name}`)
+        addToTerminal('✓ Password authentication successful')
+        addToTerminal('✓ SSH handshake completed')
+        addToTerminal('')
+        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        addToTerminal(`✓ Connected to ${host.value.name}`)
+        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        addToTerminal('')
+        addToTerminal(`Ready to execute commands.`)
+        addToTerminal('')
+        return
+      }
+    } else {
+      // Agent or other auth methods
+      addToTerminal(`🔐 Using ${host.value.authMethod} authentication...`)
+      addToTerminal('')
+      
+      const options = {
+        hostname: host.value.hostname,
+        port: host.value.port,
+        username: host.value.username,
+        authMethod: host.value.authMethod,
+        password: host.value.password,
+        privateKey: host.value.privateKey,
+        privateKeyPath: host.value.privateKeyPath,
+        passphrase: host.value.passphrase,
+      }
+      
+      const success = await ssh.connect(options)
+      
+      if (success) {
+        connectionStatus.value = 'connected'
+        addToTerminal('✓ Authentication successful')
+        addToTerminal('✓ SSH handshake completed')
+        addToTerminal('')
+        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        addToTerminal(`✓ Connected to ${host.value.name}`)
+        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        addToTerminal('')
+        addToTerminal(`Ready to execute commands.`)
         addToTerminal('')
         return
       }
@@ -89,11 +146,21 @@ const handleConnect = async () => {
     
     // If we get here, connection failed
     connectionStatus.value = 'error'
-    addToTerminal(`✗ Connection failed: ${ssh.connectionError.value || 'Unknown error'}`)
+    addToTerminal('')
+    addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    addToTerminal(`✗ Connection failed`)
+    addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    addToTerminal(`Error: ${ssh.connectionError.value || 'Unknown error'}`)
+    addToTerminal('')
     
   } catch (error: any) {
     connectionStatus.value = 'error'
-    addToTerminal(`✗ Error: ${error.message || 'Connection failed'}`)
+    addToTerminal('')
+    addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    addToTerminal(`✗ Connection error`)
+    addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    addToTerminal(`Error: ${error.message || 'Connection failed'}`)
+    addToTerminal('')
   }
 }
 
