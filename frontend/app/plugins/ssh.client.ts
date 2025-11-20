@@ -73,6 +73,16 @@ export interface SSHPlugin {
     username: string
     keyId: string
   }): Promise<SSHConnectionResult>
+
+  // Interactive shell session
+  startShellSession(options: { sessionId: string }): Promise<{ success: boolean }>
+  sendToShell(options: { sessionId: string; command: string }): Promise<{ success: boolean }>
+
+  // Event listener for shell output
+  addListener(
+    eventName: 'shellOutput',
+    listenerFunc: (data: { sessionId: string; output: string }) => void
+  ): Promise<{ remove: () => void }>
 }
 
 // Register the plugin
@@ -144,6 +154,40 @@ const SSHClient = registerPlugin<SSHPlugin>('SSHClient', {
           success: true,
           sessionId: 'mock-session-id',
           message: 'Connected with mock secure key'
+        }
+      },
+      async startShellSession(options: { sessionId: string }) {
+        console.log('SSH StartShellSession (Web Mock):', options)
+        await new Promise(resolve => setTimeout(resolve, 500))
+        return { success: true }
+      },
+      async sendToShell(options: { sessionId: string; command: string }) {
+        console.log('SSH SendToShell (Web Mock):', options)
+        // Simulate command output after a delay
+        setTimeout(() => {
+          const mockOutput = `Mock output for: ${options.command}\n$ `
+          // Trigger listener if registered
+          if ((this as any)._shellOutputListener) {
+            (this as any)._shellOutputListener({
+              sessionId: options.sessionId,
+              output: mockOutput
+            })
+          }
+        }, 300)
+        return { success: true }
+      },
+      async addListener(eventName: string, listenerFunc: any) {
+        console.log('SSH AddListener (Web Mock):', eventName)
+        if (eventName === 'shellOutput') {
+          (this as any)._shellOutputListener = listenerFunc
+        }
+        return {
+          remove: () => {
+            console.log('SSH RemoveListener (Web Mock):', eventName)
+            if (eventName === 'shellOutput') {
+              (this as any)._shellOutputListener = null
+            }
+          }
         }
       }
     }

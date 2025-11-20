@@ -28,9 +28,91 @@ import org.json.JSONArray;
 public class SSHJPlugin extends Plugin {
 
     private final Map<String, SSHClient> activeSessions = new ConcurrentHashMap<>();
+    private final Map<String, ShellSession> activeShellSessions = new ConcurrentHashMap<>();
     private SecureKeyManager secureKeyManager;
     private static final String PREFS_NAME = "ssh_keys_metadata";
     private static final String KEYS_KEY = "ssh_keys";
+
+    // Inner class for managing shell sessions
+    private class ShellSession {
+        private net.schmizz.sshj.connection.channel.direct.Session.Shell shell;
+        private java.io.OutputStream outputStream;
+        private java.io.InputStream inputStream;
+        private Thread readerThread;
+        private volatile boolean isRunning = false;
+        private String sessionId;
+
+        public ShellSession(String sessionId) {
+            this.sessionId = sessionId;
+        }
+
+        public void start(SSHClient sshClient) throws IOException {
+            net.schmizz.sshj.connection.channel.direct.Session session = sshClient.startSession();
+            session.allocateDefaultPTY();
+            
+            shell = session.startShell();
+            outputStream = shell.getOutputStream();
+            inputStream = shell.getInputStream();
+            isRunning = true;
+
+            // Start background thread to read output
+            readerThread = new Thread(() -> {
+                byte[] buffer = new byte[1024];
+                try {
+                    while (isRunning && !Thread.currentThread().isInterrupted()) {
+                        int available = inputStream.available();
+                        if (available > 0) {
+                            int read = inputStream.read(buffer, 0, Math.min(available, buffer.length));
+                            if (read > 0) {
+                                String output = new String(buffer, 0, read, StandardCharsets.UTF_8);
+                                
+                                // Send output to frontend via event
+                                JSObject data = new JSObject();
+                                data.put("sessionId", sessionId);
+                                data.put("output", output);
+                                notifyListeners("shellOutput", data);
+                            }
+                        } else {
+                            Thread.sleep(50); // Small delay to prevent CPU spinning
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    Log.d("ShellSession", "Reader thread interrupted");
+                } catch (Exception e) {
+                    if (isRunning) {
+                        Log.e("ShellSession", "Error reading output", e);
+                    }
+                }
+            });
+            readerThread.start();
+        }
+
+        public void sendCommand(String command) throws IOException {
+            if (outputStream != null) {
+                outputStream.write(command.getBytes(StandardCharsets.UTF_8));
+                outputStream.flush();
+            }
+        }
+
+        public void close() {
+            isRunning = false;
+            if (readerThread != null) {
+                readerThread.interrupt();
+                try {
+                    readerThread.join(1000);
+                } catch (InterruptedException e) {
+                    // Ignore
+                }
+            }
+            try {
+                if (shell != null) {
+                    shell.close();
+                }
+            } catch (IOException e) {
+                Log.e("ShellSession", "Error closing shell", e);
+            }
+        }
+    }
 
     @Override
     public void load() {
@@ -175,11 +257,72 @@ public class SSHJPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void startShellSession(PluginCall call) {
+        String sessionId = call.getString("sessionId");
+        if (sessionId == null) {
+            call.reject("Session ID required");
+            return;
+        }
+
+        SSHClient ssh = activeSessions.get(sessionId);
+        if (ssh == null || !ssh.isConnected()) {
+            call.reject("SSH session not found or not connected");
+            return;
+        }
+
+        try {
+            ShellSession shellSession = new ShellSession(sessionId);
+            shellSession.start(ssh);
+            activeShellSessions.put(sessionId, shellSession);
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e("SSHJPlugin", "Failed to start shell session", e);
+            call.reject("Failed to start shell session: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void sendToShell(PluginCall call) {
+        String sessionId = call.getString("sessionId");
+        String command = call.getString("command");
+
+        if (sessionId == null || command == null) {
+            call.reject("Session ID and command required");
+            return;
+        }
+
+        ShellSession shellSession = activeShellSessions.get(sessionId);
+        if (shellSession == null) {
+            call.reject("Shell session not found");
+            return;
+        }
+
+        try {
+            shellSession.sendCommand(command);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e("SSHJPlugin", "Failed to send command", e);
+            call.reject("Failed to send command: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void disconnect(PluginCall call) {
         String sessionId = call.getString("sessionId");
         if (sessionId == null) {
             call.reject("Session ID required");
             return;
+        }
+
+        // Close shell session if exists
+        ShellSession shellSession = activeShellSessions.remove(sessionId);
+        if (shellSession != null) {
+            shellSession.close();
         }
 
         SSHClient ssh = activeSessions.remove(sessionId);

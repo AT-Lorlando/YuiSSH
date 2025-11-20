@@ -1,5 +1,11 @@
 <script setup lang="ts">
 import { useSSHStore } from '~/stores/ssh'
+import XtermTerminal from '~/components/XtermTerminal.vue'
+import { themes } from '~/utils/themes'
+
+definePageMeta({
+  layout: 'blank'
+})
 
 const router = useRouter()
 const route = useRoute()
@@ -9,9 +15,13 @@ const { $ssh } = useNuxtApp()
 const hostId = route.params.id as string
 const host = ref(null as any)
 const connectionStatus = ref<'idle' | 'connecting' | 'connected' | 'error'>('idle')
-const terminal = ref<HTMLElement | null>(null)
-const commandInput = ref('')
-const terminalOutput = ref<string[]>([])
+const terminalRef = ref<InstanceType<typeof XtermTerminal> | null>(null)
+
+// Terminal Settings
+const showSettings = ref(false)
+const currentTheme = ref('default')
+const fontSize = ref(12)
+const isCtrlActive = ref(false)
 
 // Use SSH composable
 const ssh = useSSH()
@@ -30,29 +40,30 @@ onMounted(() => {
   sshStore.markHostAsUsed(hostId)
 })
 
+// Cleanup on unmount
+onUnmounted(() => {
+  ssh.cleanupShellSession()
+})
+
 // Connect to SSH
 const handleConnect = async () => {
   if (!host.value) return
   
   connectionStatus.value = 'connecting'
-  addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  addToTerminal(`🔌 Initiating SSH connection...`)
-  addToTerminal(`   Host: ${host.value.hostname}:${host.value.port}`)
-  addToTerminal(`   User: ${host.value.username}`)
-  addToTerminal(`   Auth: ${host.value.authMethod === 'secureKey' ? 'Secure Key (Biometric)' : host.value.authMethod}`)
-  addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  addToTerminal('')
+  terminalRef.value?.clear()
+  terminalRef.value?.write('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n')
+  terminalRef.value?.write(`🔌 Initiating SSH connection...\r\n`)
+  terminalRef.value?.write(`   Host: ${host.value.hostname}:${host.value.port}\r\n`)
+  terminalRef.value?.write(`   User: ${host.value.username}\r\n`)
+  terminalRef.value?.write('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n\r\n')
   
   try {
     let result
     
     // Use secure key authentication if available
     if (host.value.authMethod === 'secureKey' && host.value.secureKeyId) {
-      addToTerminal(`🔐 Using secure key: ${host.value.secureKeyLabel}`)
-      addToTerminal(`   Key ID: ${host.value.secureKeyId.substring(0, 16)}...`)
-      addToTerminal('')
-      addToTerminal('👆 Biometric authentication required...')
-      addToTerminal('   Please authenticate to decrypt your SSH key')
+      terminalRef.value?.write(`🔐 Using secure key: ${host.value.secureKeyLabel}\r\n`)
+      terminalRef.value?.write('👆 Biometric authentication required...\r\n')
       
       result = await $ssh.connectWithSecureKey({
         hostname: host.value.hostname,
@@ -62,27 +73,11 @@ const handleConnect = async () => {
       })
       
       if (result.success && result.sessionId) {
-        ssh.currentSessionId.value = result.sessionId
-        ssh.isConnected.value = true
-        connectionStatus.value = 'connected'
-        addToTerminal('')
-        addToTerminal('✓ Biometric authentication successful!')
-        addToTerminal('✓ Private key decrypted from secure storage')
-        addToTerminal('✓ SSH handshake completed')
-        addToTerminal('✓ Public key authentication successful')
-        addToTerminal('')
-        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-        addToTerminal(`✓ Connected to ${host.value.name}`)
-        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-        addToTerminal('')
-        addToTerminal(`Session ID: ${result.sessionId}`)
-        addToTerminal(`Ready to execute commands.`)
-        addToTerminal('')
+        handleSuccessfulConnection(result.sessionId)
         return
       }
     } else if (host.value.authMethod === 'password') {
-      addToTerminal('🔑 Using password authentication...')
-      addToTerminal('')
+      terminalRef.value?.write('🔑 Using password authentication...\r\n')
       
       const options = {
         hostname: host.value.hostname,
@@ -96,24 +91,13 @@ const handleConnect = async () => {
       }
       
       const success = await ssh.connect(options)
-      
-      if (success) {
-        connectionStatus.value = 'connected'
-        addToTerminal('✓ Password authentication successful')
-        addToTerminal('✓ SSH handshake completed')
-        addToTerminal('')
-        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-        addToTerminal(`✓ Connected to ${host.value.name}`)
-        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-        addToTerminal('')
-        addToTerminal(`Ready to execute commands.`)
-        addToTerminal('')
+      if (success && ssh.currentSessionId.value) {
+        handleSuccessfulConnection(ssh.currentSessionId.value)
         return
       }
     } else {
       // Agent or other auth methods
-      addToTerminal(`🔐 Using ${host.value.authMethod} authentication...`)
-      addToTerminal('')
+      terminalRef.value?.write(`🔐 Using ${host.value.authMethod} authentication...\r\n`)
       
       const options = {
         hostname: host.value.hostname,
@@ -127,80 +111,87 @@ const handleConnect = async () => {
       }
       
       const success = await ssh.connect(options)
-      
-      if (success) {
-        connectionStatus.value = 'connected'
-        addToTerminal('✓ Authentication successful')
-        addToTerminal('✓ SSH handshake completed')
-        addToTerminal('')
-        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-        addToTerminal(`✓ Connected to ${host.value.name}`)
-        addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-        addToTerminal('')
-        addToTerminal(`Ready to execute commands.`)
-        addToTerminal('')
+      if (success && ssh.currentSessionId.value) {
+        handleSuccessfulConnection(ssh.currentSessionId.value)
         return
       }
     }
     
     // If we get here, connection failed
-    connectionStatus.value = 'error'
-    addToTerminal('')
-    addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    addToTerminal(`✗ Connection failed`)
-    addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    addToTerminal(`Error: ${ssh.connectionError.value || 'Unknown error'}`)
-    addToTerminal('')
+    throw new Error(ssh.connectionError.value || 'Connection failed')
     
   } catch (error: any) {
     connectionStatus.value = 'error'
-    addToTerminal('')
-    addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    addToTerminal(`✗ Connection error`)
-    addToTerminal('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    addToTerminal(`Error: ${error.message || 'Connection failed'}`)
-    addToTerminal('')
+    terminalRef.value?.write('\r\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n')
+    terminalRef.value?.write(`✗ Connection error: ${error.message}\r\n`)
+    terminalRef.value?.write('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n')
+  }
+}
+
+const handleSuccessfulConnection = async (sessionId: string) => {
+  ssh.currentSessionId.value = sessionId
+  ssh.isConnected.value = true
+  
+  terminalRef.value?.write('✓ Connected successfully\r\n')
+  terminalRef.value?.write('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n\r\n')
+  
+  // Start interactive shell session
+  const shellStarted = await ssh.startShellSession((output) => {
+    terminalRef.value?.write(output)
+  })
+  
+  if (shellStarted) {
+    connectionStatus.value = 'connected'
+    terminalRef.value?.clear() // Clear init logs for clean shell
+    terminalRef.value?.focus()
+    
+    // Force resize to ensure fit
+    setTimeout(() => {
+      terminalRef.value?.handleResize()
+    }, 100)
+  } else {
+    throw new Error('Failed to start shell session')
   }
 }
 
 const handleDisconnect = async () => {
-  addToTerminal('Disconnecting...')
+  terminalRef.value?.write('\r\nDisconnecting...\r\n')
+  ssh.cleanupShellSession()
   await ssh.disconnect()
   connectionStatus.value = 'idle'
-  addToTerminal('Disconnected')
-  
-  // Clear terminal after a delay
-  setTimeout(() => {
-    terminalOutput.value = []
-  }, 1000)
+  terminalRef.value?.write('Disconnected\r\n')
 }
 
-const addToTerminal = (text: string) => {
-  terminalOutput.value.push(text)
-  nextTick(() => {
-    if (terminal.value) {
-      terminal.value.scrollTop = terminal.value.scrollHeight
+const onTerminalData = async (data: string) => {
+  if (connectionStatus.value === 'connected') {
+    let dataToSend = data
+    
+    // Handle Ctrl key modifier
+    if (isCtrlActive.value) {
+      // If data is a single character, convert to control code
+      if (data.length === 1) {
+        const charCode = data.toUpperCase().charCodeAt(0)
+        if (charCode >= 64 && charCode <= 95) {
+          dataToSend = String.fromCharCode(charCode - 64)
+        }
+      }
+      isCtrlActive.value = false // Reset Ctrl after one use
     }
-  })
-}
-
-const sendCommand = async () => {
-  if (!commandInput.value.trim() || connectionStatus.value !== 'connected') return
-  
-  const cmd = commandInput.value
-  addToTerminal(`$ ${cmd}`)
-  commandInput.value = ''
-  
-  try {
-    const output = await ssh.executeCommand(cmd)
-    if (output) {
-      output.split('\n').forEach(line => addToTerminal(line))
-    }
-    addToTerminal('')
-  } catch (error: any) {
-    addToTerminal(`Error: ${error.message}`)
-    addToTerminal('')
+    
+    await ssh.sendToShell(dataToSend)
   }
+}
+
+// Quick commands
+const quickCommand = async (cmd: string) => {
+  if (connectionStatus.value === 'connected') {
+    await ssh.sendToShell(cmd + '\n')
+    terminalRef.value?.focus()
+  }
+}
+
+const toggleCtrl = () => {
+  isCtrlActive.value = !isCtrlActive.value
 }
 
 const goBack = () => {
@@ -209,248 +200,210 @@ const goBack = () => {
   }
   router.back()
 }
+
+// Virtual Keyboard helper
+const showKeyboard = () => {
+  terminalRef.value?.focus()
+}
 </script>
 
 <template>
-    <div v-if="host" class="min-h-screen flex flex-col">
+    <div v-if="host" class="h-screen w-screen flex flex-col bg-black overflow-hidden">
       <!-- Header -->
-      <div class="px-4 pt-6 pb-4">
-        <div class="flex items-center gap-3 mb-2">
+      <div class="px-4 py-3 border-b border-slate-800 bg-slate-900/95 backdrop-blur flex items-center justify-between shrink-0 z-50">
+        <div class="flex items-center gap-3">
           <button
-            class="neomorph-btn p-2 rounded-lg"
+            class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+            tabindex="-1"
+            @mousedown.prevent
             @click="goBack"
           >
-            <Icon name="lucide:arrow-left" class="w-5 h-5 text-gray-300" />
+            <Icon name="lucide:arrow-left" class="w-5 h-5 text-slate-300" />
           </button>
-          <div class="flex-1">
-            <h1 class="text-2xl font-bold text-gray-100">{{ host.name }}</h1>
-            <p class="text-sm text-gray-400">{{ host.username }}@{{ host.hostname }}:{{ host.port }}</p>
+          <div>
+            <h1 class="text-base font-bold text-slate-200">{{ host.name }}</h1>
+            <p class="text-xs text-slate-400">{{ host.username }}@{{ host.hostname }}</p>
           </div>
+        </div>
+        
+        <!-- Header Actions -->
+        <div class="flex items-center gap-2">
+           <!-- Settings Button -->
+           <button
+            class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+            tabindex="-1"
+            @mousedown.prevent
+            @click="showSettings = true"
+          >
+            <Icon name="lucide:settings-2" class="w-5 h-5 text-slate-300" />
+          </button>
           
-          <!-- Connection Status Badge -->
-          <div
+           <div
             :class="[
-              'px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-2',
-              connectionStatus === 'connected' ? 'bg-green-500/20 text-green-400' :
-              connectionStatus === 'connecting' ? 'bg-blue-500/20 text-blue-400' :
-              connectionStatus === 'error' ? 'bg-red-500/20 text-red-400' :
-              'bg-gray-500/20 text-gray-400'
+              'w-2 h-2 rounded-full',
+              connectionStatus === 'connected' ? 'bg-green-400 animate-pulse' :
+              connectionStatus === 'connecting' ? 'bg-blue-400 animate-pulse' :
+              connectionStatus === 'error' ? 'bg-red-400' :
+              'bg-slate-400'
             ]"
-          >
-            <div
-              :class="[
-                'w-2 h-2 rounded-full',
-                connectionStatus === 'connected' ? 'bg-green-400 animate-pulse' :
-                connectionStatus === 'connecting' ? 'bg-blue-400 animate-pulse' :
-                connectionStatus === 'error' ? 'bg-red-400' :
-                'bg-gray-400'
-              ]"
-            />
-            {{ 
-              connectionStatus === 'connected' ? 'Connected' :
-              connectionStatus === 'connecting' ? 'Connecting...' :
-              connectionStatus === 'error' ? 'Error' :
-              'Disconnected'
-            }}
-          </div>
+          />
         </div>
       </div>
 
-      <!-- Connection Controls -->
-      <div v-if="connectionStatus === 'idle'" class="px-4 pb-4">
-        <div class="neomorph p-6 rounded-2xl text-center">
-          <div class="neomorph-pressed w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center">
+      <!-- Connection Controls (Overlay) -->
+      <div v-if="connectionStatus === 'idle' || connectionStatus === 'error'" class="absolute inset-0 z-40 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="card max-w-sm w-full p-6 text-center bg-slate-800 border border-slate-700 shadow-2xl">
+          <div class="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
+               :class="connectionStatus === 'error' ? 'bg-red-500/10' : 'bg-blue-500/10'">
             <Icon
-              name="lucide:power"
-              class="w-10 h-10 text-blue-400"
+              :name="connectionStatus === 'error' ? 'lucide:x-circle' : 'lucide:power'"
+              class="w-8 h-8"
+              :class="connectionStatus === 'error' ? 'text-red-400' : 'text-blue-400'"
             />
           </div>
           
-          <h3 class="text-xl font-bold text-gray-100 mb-2">
-            Ready to Connect
+          <h3 class="text-lg font-bold text-slate-200 mb-2">
+            {{ connectionStatus === 'error' ? 'Connection Failed' : 'Ready to Connect' }}
           </h3>
           
-          <p class="text-gray-400 text-sm mb-6">
-            Click connect to establish SSH connection
-          </p>
-          
-          <button
-            class="neomorph-btn px-8 py-3 rounded-xl font-medium text-gray-200 inline-flex items-center gap-2"
-            @click="handleConnect"
-          >
-            <Icon name="lucide:plug" class="w-5 h-5" />
-            Connect
-          </button>
-        </div>
-
-        <!-- Host Info -->
-        <div class="mt-4 neomorph p-4 rounded-xl">
-          <h4 class="text-sm font-semibold text-gray-300 mb-3">Connection Details</h4>
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-400">Hostname:</span>
-              <span class="text-gray-200 font-mono">{{ host.hostname }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-400">Port:</span>
-              <span class="text-gray-200 font-mono">{{ host.port }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-400">Username:</span>
-              <span class="text-gray-200 font-mono">{{ host.username }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-400">Auth Method:</span>
-              <span class="text-gray-200 capitalize">{{ host.authMethod }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Error State with Terminal Logs -->
-      <div v-if="connectionStatus === 'error'" class="flex-1 flex flex-col px-4 pb-4">
-        <div class="neomorph p-6 rounded-2xl text-center mb-4">
-          <div class="neomorph-pressed w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center">
-            <Icon
-              name="lucide:x-circle"
-              class="w-10 h-10 text-red-400"
-            />
-          </div>
-          
-          <h3 class="text-xl font-bold text-gray-100 mb-2">
-            Connection Failed
-          </h3>
-          
-          <p v-if="ssh.connectionError.value" class="text-red-400 text-sm mb-4">
+          <p v-if="connectionStatus === 'error' && ssh.connectionError.value" class="text-red-400 text-sm mb-6">
             {{ ssh.connectionError.value }}
           </p>
+          <p v-else class="text-slate-400 text-sm mb-6">
+            Establish SSH connection to {{ host.hostname }}
+          </p>
           
           <button
-            class="neomorph-btn px-8 py-3 rounded-xl font-medium text-gray-200 inline-flex items-center gap-2"
+            class="btn-primary w-full justify-center"
+            tabindex="-1"
+            @mousedown.prevent
             @click="handleConnect"
           >
-            <Icon name="lucide:refresh-cw" class="w-5 h-5" />
-            Retry Connection
+            <Icon :name="connectionStatus === 'error' ? 'lucide:refresh-cw' : 'lucide:plug'" class="w-4 h-4" />
+            {{ connectionStatus === 'error' ? 'Retry' : 'Connect' }}
           </button>
-        </div>
-
-        <!-- Terminal Output with Error Logs -->
-        <div class="flex-1 neomorph-pressed rounded-2xl overflow-hidden mb-4">
-          <div class="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <Icon name="lucide:terminal" class="w-4 h-4 text-red-400" />
-              <span class="text-sm font-medium text-gray-300">Connection Logs</span>
-            </div>
-            <span class="text-xs text-red-400">Failed</span>
-          </div>
-          <div
-            ref="terminal"
-            class="h-64 overflow-y-auto p-4 font-mono text-sm text-green-400"
-          >
-            <div v-for="(line, index) in terminalOutput" :key="index" :class="['mb-1', line.includes('✗') || line.includes('Error') ? 'text-red-400' : '']">
-              {{ line }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Host Info -->
-        <div class="neomorph p-4 rounded-xl">
-          <h4 class="text-sm font-semibold text-gray-300 mb-3">Connection Details</h4>
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-400">Hostname:</span>
-              <span class="text-gray-200 font-mono">{{ host.hostname }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-400">Port:</span>
-              <span class="text-gray-200 font-mono">{{ host.port }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-400">Username:</span>
-              <span class="text-gray-200 font-mono">{{ host.username }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-400">Auth Method:</span>
-              <span class="text-gray-200 capitalize">{{ host.authMethod }}</span>
-            </div>
-          </div>
         </div>
       </div>
 
+      <!-- Terminal Area -->
+      <div class="flex-1 relative overflow-hidden bg-black">
+        <XtermTerminal
+          ref="terminalRef"
+          :theme="themes[currentTheme]"
+          :font-size="fontSize"
+          @data="onTerminalData"
+          class="absolute inset-0"
+        />
+      </div>
 
-      <!-- Terminal (when connected) -->
-      <div v-if="connectionStatus === 'connecting' || connectionStatus === 'connected'" class="flex-1 flex flex-col px-4 pb-4">
-        <!-- Terminal Output -->
-        <div class="flex-1 neomorph-pressed rounded-t-2xl overflow-hidden">
-          <div
-            ref="terminal"
-            class="h-full overflow-y-auto p-4 font-mono text-sm text-green-400"
-          >
-            <div v-if="connectionStatus === 'connecting'" class="flex items-center gap-3">
-              <div class="animate-spin">
-                <Icon name="lucide:loader-2" class="w-5 h-5" />
-              </div>
-              <span>Connecting to {{ host.hostname }}...</span>
-            </div>
-            
-            <div v-for="(line, index) in terminalOutput" :key="index" class="mb-1">
-              {{ line }}
-            </div>
-            
-            <div v-if="connectionStatus === 'connected'" class="flex items-center gap-2 mt-2">
-              <span class="text-blue-400">$</span>
-              <div class="w-2 h-4 bg-green-400 animate-pulse" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Command Input -->
-        <div v-if="connectionStatus === 'connected'" class="neomorph-pressed rounded-b-2xl p-4 flex items-center gap-3">
-          <Icon name="lucide:terminal" class="w-5 h-5 text-gray-400" />
-          <input
-            v-model="commandInput"
-            type="text"
-            placeholder="Enter command..."
-            class="flex-1 bg-transparent text-gray-200 outline-none font-mono"
-            @keyup.enter="sendCommand"
-          />
+      <!-- Mobile Quick Actions Bar -->
+      <div v-if="connectionStatus === 'connected'" class="shrink-0 border-t border-slate-800 bg-slate-900 p-2 pb-safe">
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar">
           <button
-            class="neomorph-btn p-2 rounded-lg"
-            @click="sendCommand"
+            class="px-3 py-2 rounded bg-slate-800 active:bg-slate-700 text-xs text-slate-300 font-mono whitespace-nowrap border border-slate-700"
+            tabindex="-1"
+            @mousedown.prevent
+            @click="showKeyboard"
           >
-            <Icon name="lucide:send" class="w-5 h-5 text-gray-300" />
+            <Icon name="lucide:keyboard" class="w-4 h-4" />
+          </button>
+          
+          <div class="w-px h-6 bg-slate-700 mx-1"></div>
+          
+          <!-- Ctrl Key Toggle -->
+          <button
+            class="px-3 py-2 rounded text-xs font-mono whitespace-nowrap border transition-colors"
+            :class="isCtrlActive 
+              ? 'bg-blue-600 text-white border-blue-500' 
+              : 'bg-slate-800 text-slate-300 border-slate-700 active:bg-slate-700'"
+            tabindex="-1"
+            @mousedown.prevent
+            @click="toggleCtrl"
+          >
+            CTRL
+          </button>
+          
+          <button
+            v-for="cmd in ['TAB', 'ESC', '/', '-', '|', 'HOME', 'END']"
+            :key="cmd"
+            class="px-3 py-2 rounded bg-slate-800 active:bg-slate-700 text-xs text-slate-300 font-mono whitespace-nowrap border border-slate-700"
+            tabindex="-1"
+            @mousedown.prevent
+            @click="async () => {
+              if (cmd === 'TAB') await ssh.sendToShell('\t')
+              else if (cmd === 'ESC') await ssh.sendToShell('\x1b')
+              else if (cmd === 'HOME') await ssh.sendToShell('\x1b[H')
+              else if (cmd === 'END') await ssh.sendToShell('\x1b[F')
+              else await ssh.sendToShell(cmd)
+              terminalRef?.focus()
+            }"
+          >
+            {{ cmd }}
           </button>
         </div>
-
-        <!-- Disconnect Button -->
-        <button
-          v-if="connectionStatus === 'connected'"
-          class="mt-4 w-full py-3 rounded-xl font-medium text-white flex items-center justify-center gap-2"
-          style="background: linear-gradient(145deg, #dc2626, #b91c1c); box-shadow: 6px 6px 12px rgba(0, 0, 0, 0.4), -6px -6px 12px rgba(239, 68, 68, 0.1);"
-          @click="handleDisconnect"
-        >
-          <Icon name="lucide:power-off" class="w-5 h-5" />
-          Disconnect
-        </button>
       </div>
 
-      <!-- Quick Actions (when connected) -->
-      <div v-if="connectionStatus === 'connected'" class="px-4 pb-6">
-        <div class="grid grid-cols-3 gap-3">
-          <button class="neomorph p-3 rounded-xl text-center">
-            <Icon name="lucide:folder" class="w-6 h-6 mx-auto mb-1 text-blue-400" />
-            <span class="text-xs text-gray-300">Files</span>
-          </button>
-          <button class="neomorph p-3 rounded-xl text-center">
-            <Icon name="lucide:upload" class="w-6 h-6 mx-auto mb-1 text-green-400" />
-            <span class="text-xs text-gray-300">Upload</span>
-          </button>
-          <button class="neomorph p-3 rounded-xl text-center">
-            <Icon name="lucide:settings" class="w-6 h-6 mx-auto mb-1 text-gray-400" />
-            <span class="text-xs text-gray-300">Settings</span>
-          </button>
+      <!-- Settings Modal -->
+      <div v-if="showSettings" class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" @click="showSettings = false">
+        <div class="w-full max-w-md bg-slate-900 border-t sm:border border-slate-800 sm:rounded-xl p-6 pb-safe" @click.stop>
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-bold text-slate-200">Terminal Settings</h3>
+            <button @click="showSettings = false" class="p-2 hover:bg-slate-800 rounded-lg">
+              <Icon name="lucide:x" class="w-5 h-5 text-slate-400" />
+            </button>
+          </div>
+
+          <div class="space-y-6">
+            <!-- Theme Selector -->
+            <div>
+              <label class="block text-sm font-medium text-slate-400 mb-3">Theme</label>
+              <div class="grid grid-cols-2 gap-3">
+                <button
+                  v-for="(theme, key) in themes"
+                  :key="key"
+                  class="p-3 rounded-lg border transition-all text-left flex items-center gap-3"
+                  :class="currentTheme === key ? 'bg-slate-800 border-blue-500 ring-1 ring-blue-500' : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'"
+                  @click="currentTheme = key as string"
+                >
+                  <div class="w-6 h-6 rounded-full border border-slate-600" :style="{ background: theme.background }"></div>
+                  <span class="text-sm text-slate-200">{{ theme.name }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Font Size -->
+            <div>
+              <label class="block text-sm font-medium text-slate-400 mb-3">
+                Font Size: <span class="text-slate-200">{{ fontSize }}px</span>
+              </label>
+              <input
+                v-model.number="fontSize"
+                type="range"
+                min="8"
+                max="20"
+                step="1"
+                class="w-full accent-blue-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+              />
+              <div class="flex justify-between text-xs text-slate-500 mt-2">
+                <span>Tiny (8px)</span>
+                <span>Huge (20px)</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 </template>
 
+<style scoped>
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>
