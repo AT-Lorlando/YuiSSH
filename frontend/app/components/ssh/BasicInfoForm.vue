@@ -19,83 +19,72 @@ const updateField = (field: keyof SSHHost, value: any) => {
   <div class="space-y-4">
     <!-- Name -->
     <div>
-      <label class="block text-sm font-medium text-gray-300 mb-2">
-        Host Name *
+      <label class="block text-sm font-medium text-slate-300 mb-2">
+        Host Name <span class="text-red-400">*</span>
       </label>
-      <div class="neomorph-pressed rounded-xl overflow-hidden">
-        <input
-          :value="formData.name"
-          type="text"
-          placeholder="My Server"
-          class="w-full px-4 py-3 bg-transparent text-gray-200 outline-none"
-          @input="updateField('name', ($event.target as HTMLInputElement).value)"
-        />
-      </div>
+      <input
+        :value="formData.name"
+        type="text"
+        placeholder="My Server"
+        class="input-field"
+        @input="updateField('name', ($event.target as HTMLInputElement).value)"
+      />
     </div>
 
     <!-- Hostname -->
     <div>
-      <label class="block text-sm font-medium text-gray-300 mb-2">
-        Hostname / IP Address *
+      <label class="block text-sm font-medium text-slate-300 mb-2">
+        Hostname / IP Address <span class="text-red-400">*</span>
       </label>
-      <div class="neomorph-pressed rounded-xl overflow-hidden">
-        <input
-          :value="formData.hostname"
-          type="text"
-          placeholder="example.com or 192.168.1.100"
-          class="w-full px-4 py-3 bg-transparent text-gray-200 outline-none"
-          @input="updateField('hostname', ($event.target as HTMLInputElement).value)"
-        />
-      </div>
+      <input
+        :value="formData.hostname"
+        type="text"
+        placeholder="example.com or 192.168.1.100"
+        class="input-field"
+        @input="updateField('hostname', ($event.target as HTMLInputElement).value)"
+      />
     </div>
 
-    <!-- Port & Username -->
-    <div class="grid grid-cols-2 gap-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-300 mb-2">
-          Port *
-        </label>
-        <div class="neomorph-pressed rounded-xl overflow-hidden">
-          <input
-            :value="formData.port"
-            type="number"
-            placeholder="22"
-            class="w-full px-4 py-3 bg-transparent text-gray-200 outline-none"
-            @input="updateField('port', parseInt(($event.target as HTMLInputElement).value))"
-          />
-        </div>
-      </div>
-      
-      <div>
-        <label class="block text-sm font-medium text-gray-300 mb-2">
-          Username *
-        </label>
-        <div class="neomorph-pressed rounded-xl overflow-hidden">
-          <input
-            :value="formData.username"
-            type="text"
-            placeholder="root"
-            class="w-full px-4 py-3 bg-transparent text-gray-200 outline-none"
-            @input="updateField('username', ($event.target as HTMLInputElement).value)"
-          />
-        </div>
-      </div>
+    <!-- Port -->
+    <div>
+      <label class="block text-sm font-medium text-slate-300 mb-2">
+        Port <span class="text-red-400">*</span>
+      </label>
+      <input
+        :value="formData.port"
+        type="number"
+        placeholder="22"
+        class="input-field"
+        @input="updateField('port', parseInt(($event.target as HTMLInputElement).value))"
+      />
+    </div>
+
+    <!-- Username -->
+    <div>
+      <label class="block text-sm font-medium text-slate-300 mb-2">
+        Username <span class="text-red-400">*</span>
+      </label>
+      <input
+        :value="formData.username"
+        type="text"
+        placeholder="root"
+        class="input-field"
+        @input="updateField('username', ($event.target as HTMLInputElement).value)"
+      />
     </div>
 
     <!-- Description -->
     <div>
-      <label class="block text-sm font-medium text-gray-300 mb-2">
+      <label class="block text-sm font-medium text-slate-300 mb-2">
         Description
       </label>
-      <div class="neomorph-pressed rounded-xl overflow-hidden">
-        <textarea
-          :value="formData.description"
-          placeholder="Optional description..."
-          rows="3"
-          class="w-full px-4 py-3 bg-transparent text-gray-200 outline-none resize-none"
-          @input="updateField('description', ($event.target as HTMLInputElement).value)"
-        />
-      </div>
+      <textarea
+        :value="formData.description"
+        placeholder="Optional description..."
+        rows="3"
+        class="input-field resize-none"
+        @input="updateField('description', ($event.target as HTMLInputElement).value)"
+      />
     </div>
   </div>
 </template>

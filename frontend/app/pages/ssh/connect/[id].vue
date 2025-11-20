@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Page } from 'konsta/vue'
 import { useSSHStore } from '~/stores/ssh'
 
 const router = useRouter()
@@ -213,9 +212,6 @@ const goBack = () => {
 </script>
 
 <template>
-  <Page>
-    <Breadcrumbs />
-    
     <div v-if="host" class="min-h-screen flex flex-col">
       <!-- Header -->
       <div class="px-4 pt-6 pb-4">
@@ -456,6 +452,5 @@ const goBack = () => {
         </div>
       </div>
     </div>
-  </Page>
 </template>
 

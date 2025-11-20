@@ -17,7 +17,7 @@ const breadcrumbs = computed(() => {
 </script>
 
 <template>
-  <div class="flex items-center space-x-2 px-6 py-4 text-sm">
+  <div class="flex items-center space-x-2 px-6 pb-4 text-sm">
     <template v-for="(crumb, index) in breadcrumbs" :key="crumb.path">
       <button
         v-if="index < breadcrumbs.length - 1"
@@ -27,7 +27,7 @@ const breadcrumbs = computed(() => {
         {{ crumb.name }}
       </button>
       <span v-else class="text-gray-100 font-medium">
-        {{ crumb.name }}
+        {{ crumb.name.slice(0, 8) + (crumb.name.length > 8 ? '...' : '') }}
       </span>
       <Icon
         v-if="index < breadcrumbs.length - 1"

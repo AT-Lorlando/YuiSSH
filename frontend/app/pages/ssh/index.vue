@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Page, Searchbar } from 'konsta/vue'
 import { useSSHStore } from '~/stores/ssh'
 
 const sshStore = useSSHStore()
@@ -62,29 +61,9 @@ const createNewHost = () => {
 </script>
 
 <template>
-  <Page>
-    <Breadcrumbs />
-    
-    <div class="min-h-screen px-4 py-6">
+    <div class="">
       <!-- Header -->
       <div class="mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h1 class="text-3xl font-bold text-gray-100 flex items-center gap-2">
-              <Icon name="lucide:terminal" class="w-8 h-8 text-blue-400" />
-              SSH Hosts
-            </h1>
-            <p class="text-gray-400 mt-1">Manage your SSH connections</p>
-          </div>
-          
-          <button
-            class="neomorph-btn p-3 rounded-xl"
-            @click="createNewHost"
-          >
-            <Icon name="lucide:plus" class="w-6 h-6 text-gray-200" />
-          </button>
-        </div>
-
         <!-- Search -->
         <div class="neomorph-pressed rounded-xl overflow-hidden">
           <div class="flex items-center px-4 py-3">
@@ -102,33 +81,6 @@ const createNewHost = () => {
             >
               <Icon name="lucide:x" class="w-5 h-5 text-gray-400" />
             </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stats -->
-      <div v-if="sshStore.hosts.length > 0" class="grid grid-cols-2 gap-4 mb-6">
-        <div class="neomorph p-4 rounded-xl">
-          <div class="flex items-center gap-3">
-            <div class="neomorph-pressed p-3 rounded-lg">
-              <Icon name="lucide:server" class="w-6 h-6 text-blue-400" />
-            </div>
-            <div>
-              <p class="text-2xl font-bold text-gray-100">{{ sshStore.hosts.length }}</p>
-              <p class="text-xs text-gray-400">Total Hosts</p>
-            </div>
-          </div>
-        </div>
-        
-        <div class="neomorph p-4 rounded-xl">
-          <div class="flex items-center gap-3">
-            <div class="neomorph-pressed p-3 rounded-lg">
-              <Icon name="lucide:activity" class="w-6 h-6 text-green-400" />
-            </div>
-            <div>
-              <p class="text-2xl font-bold text-gray-100">{{ recentHosts.length }}</p>
-              <p class="text-xs text-gray-400">Recent</p>
-            </div>
           </div>
         </div>
       </div>
@@ -205,14 +157,7 @@ const createNewHost = () => {
       <!-- Quick Actions FAB -->
       <div class="fixed bottom-6 right-6 flex flex-col gap-3">
         <button
-          class="neomorph-btn w-14 h-14 rounded-full flex items-center justify-center shadow-2xl"
-          @click="router.push('/ssh/keys')"
-          title="Generate SSH Keys"
-        >
-          <Icon name="lucide:key" class="w-6 h-6 text-gray-200" />
-        </button>
-        <button
-          class="neomorph-btn w-14 h-14 rounded-full flex items-center justify-center shadow-2xl"
+          class="neomorph-btn w-12 h-12 rounded-full flex items-center justify-center shadow-2xl bg-teal-500"
           @click="createNewHost"
           title="Add new host"
         >
@@ -256,6 +201,5 @@ const createNewHost = () => {
         </div>
       </div>
     </Teleport>
-  </Page>
 </template>
 

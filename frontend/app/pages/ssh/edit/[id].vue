@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Page } from 'konsta/vue'
 import type { SSHHost } from '~/stores/ssh'
 import AuthMethodSelector from '~/components/ssh/AuthMethodSelector.vue'
 import SecureKeySelector from '~/components/ssh/SecureKeySelector.vue'
@@ -105,21 +104,8 @@ const handleCancel = () => {
 </script>
 
 <template>
-  <Page>
-    <Breadcrumbs />
-    
-    <div class="min-h-screen px-4 py-6 pb-24">
+    <div class="min-h-screen px-4 pb-24">
       <!-- Header -->
-      <div class="mb-6">
-        <div class="flex items-center gap-3 mb-2">
-          <button class="neomorph-btn p-2 rounded-lg" @click="handleCancel">
-            <Icon name="lucide:arrow-left" class="w-5 h-5 text-gray-300" />
-          </button>
-          <h1 class="text-3xl font-bold text-gray-100">Edit SSH Host</h1>
-        </div>
-        <p class="text-gray-400 ml-14">Update your SSH connection settings</p>
-      </div>
-
       <!-- Section Navigation -->
       <div class="neomorph-pressed rounded-xl p-2 mb-6 grid grid-cols-3 gap-2">
         <button
@@ -186,7 +172,7 @@ const handleCancel = () => {
     </div>
 
     <!-- Fixed Bottom Actions -->
-    <div class="fixed bottom-0 left-0 right-0 p-4 neomorph border-t border-gray-700">
+    <div class="fixed bottom-0 left-0 right-0 m-4 neomorph safe-area-bottom">
       <div class="flex gap-3 max-w-2xl mx-auto">
         <button class="flex-1 neomorph-pressed py-3 rounded-xl font-medium text-gray-300" @click="handleCancel">
           Cancel
@@ -201,5 +187,4 @@ const handleCancel = () => {
         </button>
       </div>
     </div>
-  </Page>
 </template>

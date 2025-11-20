@@ -8,7 +8,7 @@
           <p class="font-medium text-yellow-300 mb-1">No Secure Keys</p>
           <p class="text-yellow-400/80 mb-2">You haven't generated any secure keys yet.</p>
           <button
-            class="neomorph-btn px-4 py-2 rounded-lg text-xs font-medium text-gray-200"
+            class="btn-primary text-xs py-2 px-4"
             @click="$router.push('/ssh/keys')"
           >
             Generate Secure Key
@@ -19,24 +19,26 @@
 
     <!-- Key selection -->
     <div v-else>
-      <label class="block text-sm font-medium text-gray-300 mb-2">
-        Select Secure Key *
+      <label class="block text-sm font-medium text-slate-300 mb-2">
+        Select Secure Key <span class="text-red-400">*</span>
       </label>
       <div class="space-y-2">
         <button
           v-for="key in keys"
           :key="key.keyId"
           :class="[
-            'w-full p-4 rounded-xl text-left transition-all',
-            selectedKeyId === key.keyId ? 'neomorph' : 'neomorph-pressed'
+            'w-full p-4 rounded-xl text-left transition-all border',
+            selectedKeyId === key.keyId 
+              ? 'border-blue-500 bg-blue-500/10' 
+              : 'border-slate-700 bg-slate-800/50 hover:bg-slate-800'
           ]"
           @click="selectKey(key)"
         >
           <div class="flex items-center gap-3">
             <Icon name="lucide:key" class="w-5 h-5 text-green-400 flex-shrink-0" />
             <div class="flex-1 min-w-0">
-              <div class="font-medium text-gray-200">{{ key.label }}</div>
-              <div class="text-xs text-gray-400 truncate">{{ fingerprint(key.publicKey) }}</div>
+              <div class="font-medium text-slate-200">{{ key.label }}</div>
+              <div class="text-xs text-slate-400 truncate">{{ fingerprint(key.publicKey) }}</div>
             </div>
             <Icon v-if="selectedKeyId === key.keyId" name="lucide:check-circle" class="w-5 h-5 text-green-400 flex-shrink-0" />
           </div>

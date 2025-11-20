@@ -1,6 +1,8 @@
 <template>
   <App theme="ios">
-    <NuxtPage />
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
   </App>
 </template>
 

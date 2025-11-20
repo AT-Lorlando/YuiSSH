@@ -2,46 +2,44 @@
 /* Import Konsta UI v5 theme */
 @import 'konsta/theme.css';
 
-/* Neumorphic Design - Dark Bluish */
+@theme {
+  --color-background: #0f172a;
+  --color-surface: #1e293b;
+  --color-surface-light: #334155;
+  --color-primary: #3b82f6;
+  --color-primary-dark: #2563eb;
+  --color-text-main: #f1f5f9;
+  --color-text-muted: #94a3b8;
+}
+
 body {
-  background: #1a1f2e;
-  min-height: 100vh;
+  background-color: var(--color-background);
+  color: var(--color-text-main);
+  font-family: 'Inter', sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Neumorphic Card */
-.neomorph {
-  background: #1a1f2e;
-  border-radius: 1.5rem;
-  box-shadow: 
-    8px 8px 16px rgba(0, 0, 0, 0.4),
-    -8px -8px 16px rgba(35, 42, 58, 0.6);
+/* Custom Utilities */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
 }
 
-/* Neumorphic Pressed */
-.neomorph-pressed {
-  background: #1a1f2e;
-  border-radius: 1.5rem;
-  box-shadow: 
-    inset 4px 4px 8px rgba(0, 0, 0, 0.5),
-    inset -4px -4px 8px rgba(35, 42, 58, 0.3);
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Neumorphic Button */
-.neomorph-btn {
-  background: linear-gradient(145deg, #1e2536, #161a27);
-  box-shadow: 
-    6px 6px 12px rgba(0, 0, 0, 0.4),
-    -6px -6px 12px rgba(35, 42, 58, 0.5);
-  transition: all 0.3s ease;
+.btn-primary {
+  @apply bg-blue-600 text-white font-medium py-3 px-6 rounded-xl shadow-lg active:scale-95 transition-transform duration-200 flex items-center justify-center gap-2;
 }
 
-.neomorph-btn:active {
-  box-shadow: 
-    inset 3px 3px 6px rgba(0, 0, 0, 0.5),
-    inset -3px -3px 6px rgba(35, 42, 58, 0.3);
+.btn-icon {
+  @apply p-3 rounded-full bg-slate-800 text-slate-200 active:bg-slate-700 transition-colors duration-200;
 }
 
-/* Accent gradient for icons/highlights */
-.neomorph-accent {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.card {
+  @apply bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4;
+}
+
+.input-field {
+  @apply w-full bg-slate-900/50 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all duration-200;
 }

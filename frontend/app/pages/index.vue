@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Page } from 'konsta/vue'
 import { useSSHStore } from '~/stores/ssh'
 
 const router = useRouter()
@@ -18,10 +17,7 @@ const navigateToHost = (hostId: string) => {
 </script>
 
 <template>
-  <Page>
-    <Breadcrumbs />
-    
-    <div class="min-h-screen px-6 py-8">
+    <div class="">
       <!-- Hero Section -->
       <div class="text-center mb-8">
         <div class="w-20 h-20 mx-auto mb-6 neomorph flex items-center justify-center">
@@ -127,5 +123,4 @@ const navigateToHost = (hostId: string) => {
         </button>
       </div>
     </div>
-  </Page>
 </template>
